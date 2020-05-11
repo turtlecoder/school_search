@@ -136,7 +136,7 @@ def search_schools(query: str, matches=5, score=1):
     results = {}
     start_time = time.clock()
     for word in word_vector:
-        for weight, index in [(3, _name_index), (2, _city_index), (1, _state_index)]:
+        for weight, index in [(1, _name_index), (1, _city_index), (1, _state_index)]:
             similar_keys = difflib.get_close_matches(word.lower(), index.keys(), n=matches, cutoff=score)
             for key in similar_keys:
                 record_list = index.get(key)
