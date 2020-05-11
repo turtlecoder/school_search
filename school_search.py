@@ -59,7 +59,34 @@ _state_code_map = {
     'minnesota': 'mn',
     'mississippi': 'ms',
     'missouri': 'mo',
-    'montana': 'mt'
+    'montana': 'mt',
+    'nebraska': 'ne',
+    'nevada': 'nv',
+    'new hampshire': 'nh',
+    'new york': 'ny',
+    'new jersey': 'nj',
+    'new mexico': 'nm',
+    'north carolina': 'nc',
+    'north dakota': 'nd',
+    'ohio': 'oh',
+    'oklahoma': 'ok',
+    'oregon': 'or',
+    'pennsylvania': 'pa',
+    'peurto rico': 'pr',
+    'rhode island': 'ri',
+    'south carolina': 'sc',
+    'south dakota': 'sd',
+    'tennessee': 'tn',
+    'texas': 'tx',
+    'utah': 'ut',
+    'vermont': 'vt',
+    'virginia': 'va',
+    'virgin islands': 'vi',
+    'washington': 'wa',
+    'west virginia': 'wi',
+    'wisconsin': 'wi',
+    'wyoming': 'wy'
+
 }
 
 _reverse_state_code_map = {v: k for k, v in _state_code_map.items()}
@@ -68,7 +95,10 @@ _reverse_state_code_map = {v: k for k, v in _state_code_map.items()}
 def _build_state_index(state_index: defaultdict, row: dict):
     state_usps = row.get('LSTATE05')
     state_index[state_usps.lower()].append(row)
-    state_index[_reverse_state_code_map.get(state_usps.lower())].append(row)
+    state_name = _reverse_state_code_map.get(state_usps.lower())
+    # if its a valid state name, then append it
+    if state_name:
+        state_index[state_name].append(row)
 
 
 _name_index = defaultdict(list)
@@ -94,7 +124,7 @@ class SearchResultItem:
     score: float
 
 
-def search_schools(query: str, matches=3, score=0.6):
+def search_schools(query: str, matches=5, score=1):
     """
     search for schools based on query string
     :param query: query object
@@ -104,23 +134,26 @@ def search_schools(query: str, matches=3, score=0.6):
     """
     word_vector = query.split()
     results = {}
-    start_time = time.time()
+    start_time = time.clock()
     for word in word_vector:
-        for index in [_name_index, _city_index, _state_index]:
-            similar_keys = difflib.get_close_matches(word, index.keys(), n=matches, cutoff=score)
+        for weight, index in [(3, _name_index), (2, _city_index), (1, _state_index)]:
+            similar_keys = difflib.get_close_matches(word.lower(), index.keys(), n=matches, cutoff=score)
             for key in similar_keys:
                 record_list = index.get(key)
                 for record in record_list:
-                    if record.get('NCESSCH') in results:
-                        record['NCESSCH'].score += score
+                    result_key = record.get('NCESSCH')
+                    if result_key in results:
+                        results[result_key].score += weight
                     else:
-                        record['NCESSCH'] = SearchResultItem(item=record, score=score)
-    stop_time = time.time()
-    top_results = heapq.nlargest(matches, key=lambda r: r.score)
-
-    print(f"Results for \"{query}\" (search took {stop_time - start_time} )")
+                        results[result_key] = SearchResultItem(item=record, score=weight)
+    stop_time = time.clock()
+    top_results = heapq.nlargest(matches, results.values(), key=lambda r: r.score)
+    print(f"Results for \"{query}\" (search took {stop_time - start_time}s )")
     for i, res in enumerate(top_results, 1):
         school_name = res.item['SCHNAM05']
         school_city = res.item['LCITY05']
         school_state = res.item['LSTATE05']
-        print(f"i: {school_name}\n{school_city}, {school_state}")
+        print(f"{i}: {school_name}\n{school_city}, {school_state}")
+
+
+init_indices()
